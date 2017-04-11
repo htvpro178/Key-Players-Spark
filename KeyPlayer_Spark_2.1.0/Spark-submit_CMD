@@ -1,0 +1,7 @@
+reset
+
+./sbin/start-all.sh
+
+./bin/spark-submit --class "uit.keyplayer.KeyPlayer" --total-executor-cores 40 --driver-memory 2560M --executor-memory 2560M "/c:/testkp/keyplayer-0.0.1-SNAPSHOT.jar" -in "c:/testkp/graph600_30_0.json" -b2 c1 > "c:/testkp/result_c1"
+
+./sbin/stop-all.sh

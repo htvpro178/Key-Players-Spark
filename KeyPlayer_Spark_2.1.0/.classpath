@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" output="target/classes" path="src">
+		<attributes>
+			<attribute name="optional" value="true"/>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.8">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="con" path="org.eclipse.m2e.MAVEN2_CLASSPATH_CONTAINER">
+		<attributes>
+			<attribute name="maven.pomderived" value="true"/>
+		</attributes>
+	</classpathentry>
+	<classpathentry kind="lib" path="lib/bson-3.2.2.jar"/>
+	<classpathentry kind="lib" path="lib/mongodb-driver-3.2.2.jar"/>
+	<classpathentry kind="lib" path="lib/gson-2.5.jar"/>
+	<classpathentry kind="lib" path="lib/mongodb-driver-core-3.2.2.jar"/>
+	<classpathentry kind="lib" path="lib/spark-catalyst_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-core_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-graphx_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-hive_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-hive-thriftserver_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-launcher_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-mesos_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-mllib_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-mllib-local_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-network-common_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-network-shuffle_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-repl_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-sketch_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-sql_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-streaming_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-tags_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-unsafe_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/spark-yarn_2.11-2.1.0.jar"/>
+	<classpathentry kind="lib" path="lib/scala-compiler-2.11.8.jar"/>
+	<classpathentry kind="lib" path="lib/scala-library-2.11.8.jar"/>
+	<classpathentry kind="lib" path="lib/scala-parser-combinators_2.11-1.0.4.jar"/>
+	<classpathentry kind="lib" path="lib/scala-reflect-2.11.8.jar"/>
+	<classpathentry kind="lib" path="lib/scala-xml_2.11-1.0.2.jar"/>
+	<classpathentry kind="output" path="target/classes"/>
+</classpath>
