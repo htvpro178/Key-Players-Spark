@@ -19,7 +19,7 @@ import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
-import org.apache.spark.sql.types.Decimal;
+//import org.apache.spark.sql.types.Decimal;
 
 import scala.Tuple2;
 
@@ -31,6 +31,7 @@ public class Utils implements Serializable {
 	// private List<Vertex> vertices;
 	// private List<Edge> edges;
 	private JavaPairRDD<String, List<String>> indirectInfluence;
+	private JavaPairRDD<String, Map<String, BigDecimal>> mapResult1;
 	private List<Tuple2<String, Integer>> indirectInfluenceCount;
 	// private JavaPairRDD<String, List<String>> influence;
 	private Map<String, Map<String, BigDecimal>> mapResult;
@@ -737,6 +738,24 @@ public class Utils implements Serializable {
 				.mapToPair(t -> t.swap());
 	}
 
+	public JavaPairRDD<String, BigDecimal> getAllInfluenceOfSetVertices(
+			List<Vertex> vertices, List<Edge> edges, List<String> sSetVertexName) {
+		List<Tuple2<BigDecimal, String>> mUnsortedAll = new ArrayList<Tuple2<BigDecimal, String>>(
+				vertices.size());
+		// List<Vertex> vertices = bcVertices.value().collect();
+		JavaRDD<Vertex> rddVertices = sc.parallelize(vertices);
+		rddVertices.cache();
+
+		for (String vertex : sSetVertexName) {
+			mUnsortedAll.add(new Tuple2<BigDecimal, String>(
+					InfluenceOfSetVertexOnAllVertex(vertices, rddVertices,
+							edges, sSetVertexName, vertex), vertex));
+		}
+
+		return sc.parallelizePairs(mUnsortedAll).sortByKey(false)
+				.mapToPair(t -> t.swap());
+	}
+
 	public JavaPairRDD<String, List<String>> getIndirectInfluence(
 			List<Vertex> vertices, List<Edge> edges) {
 
@@ -944,13 +963,16 @@ public class Utils implements Serializable {
 		List<int[]> subsets = new ArrayList<>();
 		List<String> strSetS = new ArrayList<>();
 		String[] arrayVertex = new String[vertices.size() + 1];
+		// boolean flagStopNextSet = false;
 		for (int i = 1; i <= vertices.size(); i++) {
 			inputArray[i - 1] = i;
 		}
 		for (int k = 1; k <= vertices.size(); k++) {
 			subsets = findCombinations(vertices, inputArray, k);
-
-			if (subsets.size() == vertices.size()) {
+			// flagStopNextSet = false;
+			// if (subsets.size() == vertices.size()) { // moi tap co 1 dinh
+			// System.out.println("subsets length=" + subsets.get(0).length);
+			if (subsets.get(0).length == 1) { // moi tap co 1 dinh
 				for (int[] strings : subsets) {
 					m_countChecking++;
 					strSetS = new ArrayList<>();
@@ -981,14 +1003,40 @@ public class Utils implements Serializable {
 						this.mapInfluentedFirst, DESC);
 				arrayVertex = addVertexAfterSorted(this.mapInfluentedFirst);
 			} else {
-				for (int[] strings : subsets) {
-					m_countChecking++;
+				for (int[] strings : subsets) { // moi tap co so dinh >= 2
 					strSetS = new ArrayList<>();
 					// System.out.println("a" + Arrays.toString(strings));
 					for (int jj = 0; jj < strings.length; jj++) {
+						// System.out.println("String=" +
+						// String.valueOf(arrayVertex[strings[jj]]));
 						strSetS.add(String.valueOf(arrayVertex[strings[jj]]));
 					}
+					// System.out.println("***: " + strSetS);
+					// Xet xem tap dang xet co thoa dieu kien, tong so dinh chiu
+					// anh huong > Data.iNeed hay khong. Neu khong se ko xet den
+					// cac tap co cung so luong dinh tiep theo nua ma chuyen
+					// sang xet tap dinh co nhieu hon 1 phan tu
+					List<String> strSetUnionRemove = new ArrayList<String>();
+					for (String stt : strSetS) {
+						// System.out.println("this.mapInfluentedFirst.get(stt)="
+						// + this.mapInfluentedFirst.get(stt));
+						strSetUnionRemove = union2ListRemoveDuplicate(
+								strSetUnionRemove,
+								this.mapInfluentedFirst.get(stt));
+					}
+
+					// for (String stt : strSetUnionRemove) {
+					// System.out.println("stt=" + stt);
+					// }
+					// System.out.println("strSetUnionRemove.size()=" +
+					// strSetUnionRemove.size());
+					if (strSetUnionRemove.size() < Data.iNeed) {
+						// flagStopNextSet = true;
+						break;
+					}
+
 					System.out.println("***Xet tap: " + strSetS);
+					m_countChecking++;
 					for (String stt : strSetS) {
 						if (strSetS.size() > 1
 								&& checkContain2List(
@@ -1025,12 +1073,14 @@ public class Utils implements Serializable {
 	}
 
 	public JavaPairRDD<List<String>, BigDecimal> findSetKeyPlayers(
-			List<Vertex> vertices, JavaRDD<Vertex> rddVertices, List<Edge> edges) {
+			List<Vertex> vertices, List<Edge> edges) {
 		int[] inputArray = new int[vertices.size()];
 		List<int[]> subsets = new ArrayList<>();
 		List<String> strSetS = new ArrayList<>();
-		List<Tuple2<BigDecimal, List<String>>> mUnsortedAll = new ArrayList<Tuple2<BigDecimal, List<String>>>(
+		List<Tuple2<BigDecimal, List<String>>> mResult = new ArrayList<Tuple2<BigDecimal, List<String>>>(
 				vertices.size());
+		JavaRDD<Vertex> rddVertices = sc.parallelize(vertices);
+		rddVertices.cache();
 		for (int i = 1; i <= vertices.size(); i++) {
 			inputArray[i - 1] = i;
 		}
@@ -1074,12 +1124,10 @@ public class Utils implements Serializable {
 						+ this.mapInfluented.get(stt));
 			}
 
-			rddVertices.cache();
-
-			mUnsortedAll.add(new Tuple2<BigDecimal, List<String>>(
+			mResult.add(new Tuple2<BigDecimal, List<String>>(
 					CalculateInfluenceOfSetKeyPlayers(strSetS), strSetS));
 		}
-		return sc.parallelizePairs(mUnsortedAll).sortByKey(false)
+		return sc.parallelizePairs(mResult).sortByKey(false)
 				.mapToPair(t -> t.swap());
 	}
 
@@ -1093,7 +1141,7 @@ public class Utils implements Serializable {
 		return new ArrayList<String>(set);
 	}
 
-	private static List<String> union2ListRemove(List<String> list1,
+	private static List<String> union2ListRemoveDuplicate(List<String> list1,
 			List<String> list2) {
 		HashSet<String> set = new HashSet<>();
 
@@ -1117,7 +1165,7 @@ public class Utils implements Serializable {
 		List<String> strSetUnionRemove = new ArrayList<>();
 		for (String stt : strSet) {
 			strSetUnion = union2List(strSetUnion, this.mapInfluented.get(stt));
-			strSetUnionRemove = union2ListRemove(strSetUnion,
+			strSetUnionRemove = union2ListRemoveDuplicate(strSetUnion,
 					this.mapInfluented.get(stt));
 		}
 		if (strSetUnionRemove.size() < Data.iNeed) {
@@ -1131,21 +1179,22 @@ public class Utils implements Serializable {
 												// tap strSet
 			if (countStringInList(strSetUnion, stt) == 1) {
 				for (String str : strSet) {
-					if (!mapResult.isEmpty()) {
-						if (mapResult.get(str).get(stt).compareTo(Data.theta) == 1) {
+					if (!this.mapResult.isEmpty()) {
+						if (this.mapResult.get(str).get(stt)
+								.compareTo(Data.theta) == 1) {
 							System.out.println(stt
 									+ ": "
-									+ String.valueOf(mapResult.get(str)
+									+ String.valueOf(this.mapResult.get(str)
 											.get(stt)) + " --> Vuot nguong "
 									+ Data.theta);
 							countOk++;
-						} else if (mapResult.get(str).get(stt)
+						} else if (this.mapResult.get(str).get(stt)
 								.compareTo(Data.theta) == -1
 								&& mapResult.get(str).get(stt)
 										.compareTo(BigDecimal.ZERO) == 1) {
 							System.out.println(stt
 									+ ": "
-									+ String.valueOf(mapResult.get(str)
+									+ String.valueOf(this.mapResult.get(str)
 											.get(stt))
 									+ " --> Khong Vuot nguong " + Data.theta);
 						}
@@ -1154,17 +1203,18 @@ public class Utils implements Serializable {
 			} else if (countStringInList(strSetUnion, stt) > 1) {
 				BigDecimal influentedValue = BigDecimal.ZERO;
 				for (String str : strSet) {
-					if (!mapResult.isEmpty()) {
-						if (mapResult.get(str).get(stt)
+					if (!this.mapResult.isEmpty()) {
+						if (this.mapResult.get(str).get(stt)
 								.compareTo(BigDecimal.ZERO) == 1) {
 							if (influentedValue.compareTo(BigDecimal.ZERO) == 0) {
 								influentedValue = BigDecimal.ONE
-										.subtract(mapResult.get(str).get(stt));
+										.subtract(this.mapResult.get(str).get(
+												stt));
 							} else {
 								influentedValue = influentedValue
 										.multiply(BigDecimal.ONE
-												.subtract(mapResult.get(str)
-														.get(stt)));
+												.subtract(this.mapResult.get(
+														str).get(stt)));
 							}
 						}
 					}
@@ -1194,7 +1244,7 @@ public class Utils implements Serializable {
 		BigDecimal influenceOfSet = BigDecimal.ZERO;
 		for (String stt : strSet) {
 			strSetUnion = union2List(strSetUnion, this.mapInfluented.get(stt));
-			strSetUnionRemove = union2ListRemove(strSetUnion,
+			strSetUnionRemove = union2ListRemoveDuplicate(strSetUnion,
 					this.mapInfluented.get(stt));
 		}
 		if (strSetUnionRemove.size() > 0) {

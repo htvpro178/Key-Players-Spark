@@ -247,7 +247,8 @@ public class KeyPlayer {
 
 				System.out.println("Nhom nho nhat thoa nguong la: " + res);
 			}
-
+			// Find the smallest set which can effect to k node with influence >
+			// threshold value in the network
 			if (args[2].equals("-b4")) {
 				lStart2 = System.currentTimeMillis();
 
@@ -274,25 +275,16 @@ public class KeyPlayer {
 				}
 
 			}
-
+			// Set of Key players
 			if (args[2].equals("-b5")) {
 				lStart2 = System.currentTimeMillis();
 
 				System.out
 						.println("So dinh Key players can tim la: " + args[3]);
 				Data.iNeed = Integer.parseInt(args[3]);
-				// for (int i = 0; i <vertices.size(); i++){
-				// System.out.println(vertices.get(i).getName());
-				// }
-				//
-				// for (int i = 0; i <edges.size(); i++){
-				// System.out.println(edges.get(i).getStartVertexName() + " " +
-				// edges.get(i).getEndVertexName());
-				// }
 
 				JavaPairRDD<List<String>, BigDecimal> all = u
-						.findSetKeyPlayers(vertices, sc.parallelize(vertices),
-								edges);
+						.findSetKeyPlayers(vertices, edges);
 				all.cache();
 
 				System.out.println("Suc anh huong cua tat ca cua dinh:");
@@ -302,7 +294,7 @@ public class KeyPlayer {
 							+ tuple._2.toString() + " ]");
 				}
 
-				System.out.println("Key Players la: ");
+				System.out.println("Tap Key Players: ");
 				Tuple2<List<String>, BigDecimal> kp = all.first();
 				System.out.println(kp._1 + ": " + kp._2.toString());
 			}
