@@ -18,7 +18,7 @@ public class KeyPlayer {
 	public static void main(String[] args) {
 
 		SparkConf conf = new SparkConf().setAppName("KeyPlayerSpark")
-				.setMaster("local[2]");
+				.setMaster("local[1]");
 		JavaSparkContext sc = new JavaSparkContext(conf);
 
 		String sInputPath = "./graph_data/graph_oneline.json";
@@ -283,20 +283,9 @@ public class KeyPlayer {
 						.println("So dinh Key players can tim la: " + args[3]);
 				Data.iNeed = Integer.parseInt(args[3]);
 
-				JavaPairRDD<List<String>, BigDecimal> all = u
-						.findSetKeyPlayers(vertices, edges);
-				all.cache();
-
-				System.out.println("Suc anh huong cua tat ca cua dinh:");
-				List<Tuple2<List<String>, BigDecimal>> listAll = all.collect();
-				for (Tuple2<List<String>, BigDecimal> tuple : listAll) {
-					System.out.println("[ " + tuple._1 + " : "
-							+ tuple._2.toString() + " ]");
-				}
-
+				List<String> keyPlayerSet = u.findSetKeyPlayers(vertices, edges);
 				System.out.println("Tap Key Players: ");
-				Tuple2<List<String>, BigDecimal> kp = all.first();
-				System.out.println(kp._1 + ": " + kp._2.toString());
+				System.out.println(keyPlayerSet);
 			}
 
 			long lEnd = System.currentTimeMillis();

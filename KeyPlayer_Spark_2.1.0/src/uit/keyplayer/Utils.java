@@ -2,6 +2,7 @@ package uit.keyplayer;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,6 +22,9 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.broadcast.Broadcast;
 //import org.apache.spark.sql.types.Decimal;
 
+import org.omg.CORBA.DATA_CONVERSION;
+
+import scala.Array;
 import scala.Tuple2;
 
 public class Utils implements Serializable {
@@ -37,12 +41,14 @@ public class Utils implements Serializable {
 	private Map<String, Map<String, BigDecimal>> mapResult;
 	private Map<String, List<String>> mapInfluented;
 	private Map<String, Map<String, BigDecimal>> mapResultFirst;
+	private Map<String, Map<String, List<List<String>>>> mapInfluencePath;
 	private Map<String, List<String>> mapInfluentedFirst;
 	private ArrayList<String> result;
 	private long lCount; // dem so luong to hop phai duyet qua, old b3, not use
 	// private long lCountChecking; // dem so luong to hop phai duyet qua, old
 	// b3, not use
 	private long m_countChecking;
+	private List<String> keyPlayerSet;
 	private transient JavaSparkContext sc;
 
 	public Utils(JavaSparkContext sc) {
@@ -56,8 +62,10 @@ public class Utils implements Serializable {
 		this.mapResult = new HashMap<String, Map<String, BigDecimal>>();
 		this.mapInfluented = new HashMap<String, List<String>>();
 		this.mapResultFirst = new HashMap<String, Map<String, BigDecimal>>();
+		this.mapInfluencePath = new HashMap<String, Map<String, List<List<String>>>>();
 		this.mapInfluentedFirst = new HashMap<String, List<String>>();
 		this.m_countChecking = 0;
+		this.keyPlayerSet = new ArrayList<>();
 		this.sc = sc;
 	}
 
@@ -81,7 +89,7 @@ public class Utils implements Serializable {
 			// return vertex.getSpreadCoefficientFromVertexName(sStartName);
 			// }
 			// else {
-			return new BigDecimal("1");
+			return BigDecimal.ONE;
 			// }
 		}
 		return new BigDecimal("-1");
@@ -252,7 +260,7 @@ public class Utils implements Serializable {
 		return ((result != null) && (!result.isEmpty())) ? result : null;
 	}
 
-	public BigDecimal IndirectInfluenceOfVertexOnOtherVertex(
+	public List<List<String>> IndirectInfluenceOfVertexOnOtherVertex(
 			List<Vertex> vertices, List<Edge> edges, String sStartName,
 			String sEndName) {
 		BigDecimal fIndirectInfluence = BigDecimal.ONE;
@@ -279,7 +287,8 @@ public class Utils implements Serializable {
 
 		List<String> temp = new ArrayList<String>();
 		List<String> explored = new ArrayList<String>(); // danh dau nhung dinh
-															// da tham
+															// da them
+		List<List<String>> listStringPath = new ArrayList<List<String>>();
 
 		List<String> endpath = new ArrayList<String>();
 		endpath.add(sEndName);
@@ -287,9 +296,12 @@ public class Utils implements Serializable {
 		List<Edge> whetherOneEdge = getEdgesEndAtVertex(edges, sEndName);
 		while (whetherOneEdge.size() <= 1) {
 			if (whetherOneEdge.size() == 0) {
-				System.out.println("Khong co duong di tu dinh " + sStartName
-						+ " den dinh " + sEndName);
-				return BigDecimal.ZERO;
+				// System.out.println("Khong co duong di tu dinh " + sStartName
+				// + " den dinh " + sEndName);
+				List<String> tempValue = new ArrayList<String>();
+				tempValue.add(String.valueOf(BigDecimal.ZERO));
+				listStringPath.add(0, tempValue);
+				return listStringPath;
 			} else {
 				String sStart = whetherOneEdge.get(0).getStartVertexName();
 				endpath.add(0, sStart);
@@ -304,17 +316,27 @@ public class Utils implements Serializable {
 													getEdgeDirectInfluenceFromStartEndVertex(
 															edges, sBefore, v)));
 							if (fIndirectInfluence.compareTo(BigDecimal.ONE) != -1) {
-								System.out
-										.println("Duong di duy nhat vua duoc tinh truoc khi ngat: "
-												+ endpath);
-								return BigDecimal.ONE;
+//								System.out
+//										.println("Duong di duy nhat vua duoc tinh truoc khi ngat: "
+//												+ endpath);
+								System.out.println(endpath);
+								List<String> tempValue = new ArrayList<String>();
+								tempValue.add(String.valueOf(BigDecimal.ONE));
+								listStringPath.add(0, tempValue);
+								listStringPath.add(endpath);
+								return listStringPath;
 							}
 						}
 						sBefore = v;
 					}
-					System.out.println("Duong di duy nhat vua duoc tinh la: "
-							+ endpath);
-					return fIndirectInfluence;
+//					System.out.println("Duong di duy nhat vua duoc tinh la: "
+//							+ endpath);
+					System.out.println(endpath);
+					List<String> tempValue = new ArrayList<String>();
+					tempValue.add(String.valueOf(fIndirectInfluence));
+					listStringPath.add(tempValue);
+					listStringPath.add(endpath);
+					return listStringPath;
 				} else {
 					fChangeEnd = true;
 					sEndName = sStart;
@@ -372,8 +394,17 @@ public class Utils implements Serializable {
 						}
 						fIndirectInfluence = fIndirectInfluence
 								.multiply(BigDecimal.ONE.subtract(bdPartial));
-						System.out
-								.println("Duong di vua duoc tinh la: " + temp);
+//						System.out
+//								.println("Duong di vua duoc tinh la: " + temp);
+						System.out.println(temp);
+						List<String> temp1 = new ArrayList<String>();
+						for (String t : temp) {
+							// System.out.println("Temp=" + t);
+							temp1.add(t);
+						}
+						listStringPath.add(temp1);
+						// System.out.println("listStringPath=" +
+						// listStringPath);
 
 						if (fChangeEnd) {
 							temp.removeAll(endpath);
@@ -416,11 +447,18 @@ public class Utils implements Serializable {
 					}
 				}
 			}
-		}
 
+		}
 		// return (fIndirectInfluence.compareTo(BigDecimal.ONE) == 1) ?
 		// BigDecimal.ONE : fIndirectInfluence;
-		return BigDecimal.ONE.subtract(fIndirectInfluence);
+		List<String> tempValue = new ArrayList<String>();
+		tempValue.add(String.valueOf(BigDecimal.ONE
+				.subtract(fIndirectInfluence)));
+		listStringPath.add(0, tempValue);
+		// System.out.println("listPa DAY" + listPa);
+		// System.out.println("DAY");
+		// System.out.println("A=" + a);
+		return listStringPath;
 	}
 
 	public BigDecimal InfluenceOfSetVertexOnOtherVertex(List<Vertex> vertices,
@@ -589,80 +627,109 @@ public class Utils implements Serializable {
 			List<Vertex> vertices, JavaRDD<Vertex> rddVertices,
 			List<Edge> edges, String sVertexName) {
 		BigDecimal fIndirectInfluence = BigDecimal.ZERO;
-		/*
-		 * List<String> OverThresholdVertex = new ArrayList<String>();
-		 * 
-		 * for (Vertex vertex : vertices) { String vName = vertex.getName(); if
-		 * (!vName.equals(sVertexName)) { BigDecimal bd =
-		 * IndirectInfluenceOfVertexOnOtherVertex(vertices, edges, sVertexName,
-		 * vName); fIndirectInfluence = fIndirectInfluence.add(bd); if
-		 * (bd.compareTo(Data.theta) != -1) { OverThresholdVertex.add(vName); }
-		 * } }
-		 * 
-		 * if (indirectInfluence != null) { if
-		 * (indirectInfluence.lookup(sVertexName).isEmpty()) { indirectInfluence
-		 * = indirectInfluence.union(sc.parallelizePairs( Arrays.asList(new
-		 * Tuple2<String, List<String>>(sVertexName,
-		 * OverThresholdVertex))));//accOverThresholdVertex.value())))); } }
-		 * else { indirectInfluence = sc.parallelizePairs( Arrays.asList(new
-		 * Tuple2<String, List<String>>(sVertexName,
-		 * OverThresholdVertex)));//accOverThresholdVertex.value()))); } return
-		 * fIndirectInfluence;//accBD.value();
-		 */
-
+//		System.out.println("Xet dinh " + sVertexName);
 		final Broadcast<List<Vertex>> bcVertices = sc.broadcast(vertices);
 		final Broadcast<List<Edge>> bcEdges = sc.broadcast(edges);
 		final Broadcast<String> bcVertexName = sc.broadcast(sVertexName);
 
 		// rddVertices.cache();
-
-		JavaPairRDD<String, BigDecimal> rddIndrInfl = rddVertices
+		JavaPairRDD<List<List<String>>, BigDecimal> rddIndrInfl = rddVertices
 				.mapToPair(vertex -> {
 					String vName = vertex.getName();
 					if (!vName.equals(bcVertexName.value())) {
-						BigDecimal bd = IndirectInfluenceOfVertexOnOtherVertex(
+						List<List<String>> listResult = IndirectInfluenceOfVertexOnOtherVertex(
 								bcVertices.value(), bcEdges.value(),
 								bcVertexName.value(), vName);
-						return new Tuple2<String, BigDecimal>(vName, bd);
+						BigDecimal bd = new BigDecimal(listResult.get(0).get(0));
+						// System.out.println("bd=" + bd);
+						List<List<String>> listResultAfterCut = new ArrayList<List<String>>();
+						for (int ii = 1; ii < listResult.size(); ii++) {
+							// System.out.println("listResult.get(" + ii +
+							// ")= "+ listResult.get(ii));
+							listResultAfterCut.add(listResult.get(ii));
+						}
+						return new Tuple2<List<List<String>>, BigDecimal>(
+								listResultAfterCut, bd);
 					} else {
-						System.out
-								.println("Suc anh huong gian tiep den chinh dinh do la 0.");
-						return new Tuple2<String, BigDecimal>(vName,
-								BigDecimal.ZERO);
+						// System.out
+						// .println("Suc anh huong gian tiep den chinh dinh do la 0.");
+						List<List<String>> listResultAfterCut = new ArrayList<List<String>>();
+						return new Tuple2<List<List<String>>, BigDecimal>(
+								listResultAfterCut, BigDecimal.ZERO);
 					}
 				});
 		rddIndrInfl.cache();
 
+		// rddIndrInfl.foreach(data -> {
+		// System.out.println("model="+ data._1() + " label=" + data._2());
+		// for ( List<String> list : data._1()){
+		// System.out.println("list=" + list);
+		// }
+		// });
+
 		fIndirectInfluence = rddIndrInfl.values().reduce(
 				(bd1, bd2) -> bd1.add(bd2));
-
-		final Broadcast<BigDecimal> bcTheta = sc.broadcast(Data.theta);
-
-		/*
-		 * JavaPairRDD<String,List<String>> OverThresholdVertex =
-		 * rddIndrInfl.filter(tuple -> { return
-		 * (tuple._2.compareTo(bcTheta.value()) != -1); }).mapToPair(pairSB ->{
-		 * return new Tuple2<String, List<String>>(bcVertexName.value(), new
-		 * ArrayList<String>(Arrays.asList(pairSB._1))); }).reduceByKey((l1, l2)
-		 * -> { l1.addAll(l2); return l1; });
-		 */
-
-		JavaPairRDD<String, List<String>> OverThresholdVertex = sc
-				.parallelizePairs(Arrays
-						.asList(new Tuple2<String, List<String>>(sVertexName,
-								rddIndrInfl
-										.filter(tuple -> {
-											return (tuple._2.compareTo(bcTheta
-													.value()) != -1);
-										}).keys().collect())));
-		if (indirectInfluence != null) {
-			// if (indirectInfluence.lookup(sVertexName).isEmpty()) {
-			indirectInfluence = indirectInfluence.union(OverThresholdVertex);
-			// }
-		} else {
-			indirectInfluence = OverThresholdVertex;
-			indirectInfluence.cache();
+		// final Broadcast<BigDecimal> bcTheta = sc.broadcast(Data.theta);
+		Map<String, List<List<String>>> mapPathWithEnd = new HashMap<String, List<List<String>>>();
+		Map<String, BigDecimal> infValueAfterCal = new HashMap<String, BigDecimal>();
+		Map<List<List<String>>, BigDecimal> map = rddIndrInfl.collectAsMap();
+		HashMap<List<List<String>>, BigDecimal> hmap = new HashMap<List<List<String>>, BigDecimal>(
+				map);
+		List<String> sInfluentedVertex = new ArrayList<>();
+		for (Entry<List<List<String>>, BigDecimal> entry : hmap.entrySet()) {
+			if (entry.getValue().compareTo(BigDecimal.ZERO) == 1) {
+//				System.out.println("Key : " + entry.getKey() + " Value : "
+//						+ entry.getValue());
+				// System.out.println("si=" +
+				// entry.getKey().get(0).get(entry.getKey().get(0).size() - 1
+				// ));
+				String sEnd = entry.getKey().get(0)
+						.get(entry.getKey().get(0).size() - 1);
+				mapPathWithEnd.put(sEnd, entry.getKey());
+				infValueAfterCal.put(sEnd, entry.getValue());
+				sInfluentedVertex.add(sEnd);
+			}
 		}
+		this.mapInfluencePath.put(sVertexName, mapPathWithEnd); // this map
+																// includes
+																// start, end,
+																// all paths
+																// from start to
+																// end
+		this.mapResult.put(sVertexName, infValueAfterCal); // this map includes
+															// influence from
+															// start to end
+		this.mapInfluented.put(sVertexName, sInfluentedVertex); // this map
+																// includes
+																// influented
+																// vertexes of
+																// start vertex
+		// if (indirectInfluence != null) {
+		// // if (indirectInfluence.lookup(sVertexName).isEmpty()) {
+		// indirectInfluence = indirectInfluence.union(OverThresholdVertex);
+		// // }
+		// } else {
+		// indirectInfluence = OverThresholdVertex;
+		// indirectInfluence.cache();
+		// }
+		//
+
+		// Map<String, BigDecimal> influentedValue = new HashMap<String,
+		// BigDecimal>();
+		//
+		// for (Vertex vertex : vertices) {
+		// BigDecimal influented = new
+		// BigDecimal(String.valueOf(infValueAfterCal.get(vertex.getName())));
+		// if (influented.compareTo(BigDecimal.ZERO) == 1) {
+		// sInfluentedVertex.add(vertex.getName());
+		// }
+		// influentedValue.put(vertex.getName(), influented);
+		// System.out.println("influented " + influented);
+		//
+		// }
+		// this.mapInfluented.put(sVertexName, sInfluentedVertex);
+
+		// System.out.println("fIndirectInfluence=" + fIndirectInfluence);
 		return fIndirectInfluence;
 	}
 
@@ -719,6 +786,67 @@ public class Utils implements Serializable {
 		return fInfluence;
 	}
 
+	// public BigDecimal InfluenceOfSetCandidateOnAllVertex(List<Vertex>
+	// vertices,
+	// JavaRDD<Vertex> rddVertices, List<Edge> edges,
+	// List<String> sSetVertexName, String sVertexName) {
+	// BigDecimal fIndirectInfluence = BigDecimal.ZERO;
+	// final Broadcast<List<Vertex>> bcVertices = sc.broadcast(vertices);
+	// final Broadcast<List<Edge>> bcEdges = sc.broadcast(edges);
+	// final Broadcast<String> bcVertexName = sc.broadcast(sVertexName);
+	//
+	// // rddVertices.cache();
+	//
+	// JavaPairRDD<String, BigDecimal> rddIndrInfl = rddVertices
+	// .mapToPair(vertex -> {
+	// String vName = vertex.getName();
+	// if (!vName.equals(bcVertexName.value())) {
+	// BigDecimal bd = IndirectInfluenceOfVertexOnOtherVertex(
+	// bcVertices.value(), bcEdges.value(),
+	// bcVertexName.value(), vName);
+	// return new Tuple2<String, BigDecimal>(vName, bd);
+	// } else {
+	// System.out
+	// .println("Suc anh huong gian tiep den chinh dinh do la 0.");
+	// return new Tuple2<String, BigDecimal>(vName,
+	// BigDecimal.ZERO);
+	// }
+	// });
+	// rddIndrInfl.cache();
+	//
+	// fIndirectInfluence = rddIndrInfl.values().reduce(
+	// (bd1, bd2) -> bd1.add(bd2));
+	//
+	// final Broadcast<BigDecimal> bcTheta = sc.broadcast(Data.theta);
+	//
+	// /*
+	// * JavaPairRDD<String,List<String>> OverThresholdVertex =
+	// * rddIndrInfl.filter(tuple -> { return
+	// * (tuple._2.compareTo(bcTheta.value()) != -1); }).mapToPair(pairSB ->{
+	// * return new Tuple2<String, List<String>>(bcVertexName.value(), new
+	// * ArrayList<String>(Arrays.asList(pairSB._1))); }).reduceByKey((l1, l2)
+	// * -> { l1.addAll(l2); return l1; });
+	// */
+	//
+	// JavaPairRDD<String, List<String>> OverThresholdVertex = sc
+	// .parallelizePairs(Arrays
+	// .asList(new Tuple2<String, List<String>>(sVertexName,
+	// rddIndrInfl
+	// .filter(tuple -> {
+	// return (tuple._2.compareTo(bcTheta
+	// .value()) != -1);
+	// }).keys().collect())));
+	// if (indirectInfluence != null) {
+	// // if (indirectInfluence.lookup(sVertexName).isEmpty()) {
+	// indirectInfluence = indirectInfluence.union(OverThresholdVertex);
+	// // }
+	// } else {
+	// indirectInfluence = OverThresholdVertex;
+	// indirectInfluence.cache();
+	// }
+	// return fIndirectInfluence;
+	// }
+
 	public JavaPairRDD<String, BigDecimal> getAllInfluenceOfVertices(
 			List<Vertex> vertices, List<Edge> edges) {
 		List<Tuple2<BigDecimal, String>> mUnsortedAll = new ArrayList<Tuple2<BigDecimal, String>>(
@@ -739,21 +867,451 @@ public class Utils implements Serializable {
 	}
 
 	public JavaPairRDD<String, BigDecimal> getAllInfluenceOfSetVertices(
-			List<Vertex> vertices, List<Edge> edges, List<String> sSetVertexName) {
+			List<Vertex> vertices, List<Edge> edges, List<String> keyPlayerSetIn) {
 		List<Tuple2<BigDecimal, String>> mUnsortedAll = new ArrayList<Tuple2<BigDecimal, String>>(
 				vertices.size());
 		// List<Vertex> vertices = bcVertices.value().collect();
 		JavaRDD<Vertex> rddVertices = sc.parallelize(vertices);
 		rddVertices.cache();
 
-		for (String vertex : sSetVertexName) {
-			mUnsortedAll.add(new Tuple2<BigDecimal, String>(
-					InfluenceOfSetVertexOnAllVertex(vertices, rddVertices,
-							edges, sSetVertexName, vertex), vertex));
+		for (Vertex vertex : vertices) {
+			if (!stringContainsItemFromList(vertex.getName(), keyPlayerSetIn)) {
+				String vName = vertex.getName();
+				List<String> keyCandidates = new ArrayList<String>();
+				for (String key : keyPlayerSetIn) {
+					keyCandidates.add(key);
+				}
+				keyCandidates.add(vName);
+				System.out.println("\n***Xet tap: " + keyCandidates);
+				mUnsortedAll.add(new Tuple2<BigDecimal, String>(
+						CalculateInfluenceOfSetCandidates(vertices, edges,
+								keyCandidates), vName));
+			}
 		}
-
 		return sc.parallelizePairs(mUnsortedAll).sortByKey(false)
 				.mapToPair(t -> t.swap());
+	}
+
+	private BigDecimal calculateInfluenceByPath(List<Vertex> vertices,
+			List<Edge> edges, List<String> path) {
+		String sBefore = null;
+		BigDecimal infValue = BigDecimal.ONE;
+		for (String v : path) {
+			if (sBefore != null) {
+				infValue = infValue
+						.multiply(getVertexSpreadCoefficientFromName(vertices,
+								v, sBefore).multiply(
+								getEdgeDirectInfluenceFromStartEndVertex(edges,
+										sBefore, v)));
+			}
+			sBefore = v;
+		}
+		return infValue;
+	}
+
+	private BigDecimal CalculateInfluenceOfSetCandidates(List<Vertex> vertices,
+			List<Edge> edges, List<String> keyCandidates) {
+		BigDecimal influenceOfSetVertices = BigDecimal.ZERO;
+		Map<String, Map<String, BigDecimal>> influenceValue = new HashMap<String, Map<String, BigDecimal>>();
+		Map<String, List<String>> influentVertices = new HashMap<String, List<String>>();
+		Map<String, BigDecimal> inf = new HashMap<String, BigDecimal>();
+		// System.out.println("keyCandidates=" + keyCandidates);
+		for (String keyCan : keyCandidates) {
+			List<String> listKeyCan = new ArrayList<String>();
+			for (String st : keyCandidates) {
+				listKeyCan.add(st);
+			}
+			listKeyCan.remove(keyCan); // tap S \ dinh dang xet suc anh huong
+			BigDecimal infValue = BigDecimal.ZERO;
+			List<String> influentVertex = new ArrayList<String>();
+			// System.out.println("this.mapInfluented.get(keyCan)=" +
+			// this.mapInfluented.get(keyCan));
+			for (String vertex : this.mapInfluented.get(keyCan)) {
+				// System.out.println("keyCan=" + keyCan);
+				// System.out.println("vertex=" + vertex);
+				infValue = BigDecimal.ONE.subtract(this.mapResult.get(keyCan)
+						.get(vertex));
+				// System.out.println("infValue=" + infValue);
+				if (this.mapInfluencePath != null) {
+					int countRemovePath = 0;
+					for (List<String> listStr : this.mapInfluencePath.get(
+							keyCan).get(vertex)) {
+						// System.out.println("listStr: " + listStr);
+						if (!Collections.disjoint(listKeyCan, listStr)) {
+							// Duong di listStr co dinh thuoc tap listKeyCan thi
+							// phai tinh lai suc anh huong tu dinh keyCan toi
+							// vertex.getName()
+							// infValue.divide(this.mapInfValuePath.get(listStr));
+							System.out.println("Duong di can loai bo: "
+									+ listStr);
+							BigDecimal infPathDivide = calculateInfluenceByPath(
+									vertices, edges, listStr);
+							// System.out
+							// .println("infPathDivide=" + infPathDivide);
+							if (infPathDivide.compareTo(BigDecimal.ZERO) != 0) {
+								infValue = infValue.divide(
+										BigDecimal.ONE.subtract(infPathDivide),
+										20, BigDecimal.ROUND_HALF_UP); // round
+																		// with
+																		// 10
+																		// digits
+																		// of
+																		// decimal
+							}
+							// System.out
+							// .println("infValue after /=: " + infValue);
+							countRemovePath++;
+						}
+					}
+					// System.out.println("countRemovePath=" + countRemovePath);
+					// System.out.println("size of mapPath=" +
+					// this.mapInfluencePath.get(
+					// keyCan).get(vertex).size());
+					if (infValue.compareTo(BigDecimal.ONE) != 0
+							|| this.mapInfluencePath.get(keyCan).get(vertex)
+									.size() == countRemovePath) {
+						// System.out.println("keyCan=" + keyCan);
+						// System.out.println("vertex=" + vertex);
+						// System.out.println("BigDecimal.ONE.subtract(infValue)="
+						// + BigDecimal.ONE.subtract(infValue));
+						// inf = new HashMap<String, BigDecimal>();
+						Map<String, BigDecimal> infTemp = new HashMap<String, BigDecimal>();
+						inf.put(vertex, BigDecimal.ONE.subtract(infValue));
+						infTemp.putAll(inf);
+						influenceValue.put(keyCan, infTemp);
+						// System.out.println( keyCan + "-" + vertex + "=" +
+						// influenceValue.get(keyCan).get(vertex));
+						if (BigDecimal.ONE.subtract(infValue).compareTo(
+								BigDecimal.ZERO) == 1) {
+							// System.out.println("vertex=" + vertex);
+							influentVertex.add(vertex);
+						}
+						// System.out.println("influentVertex1=" +
+						// influentVertex);
+					}
+				}
+				// System.out.println("keyCan1=" + keyCan);
+				// System.out.println("influentVertex=" + influentVertex);
+
+				influentVertices.put(keyCan, influentVertex);
+			}
+		}
+		// Calculate influence from set of keyCandidates to every influented
+		// node
+		List<String> strSetUnion = new ArrayList<>();
+		List<String> strSetUnionRemove = new ArrayList<>();
+		for (String stt : keyCandidates) {
+			// System.out.println("sttke=" + stt);
+			if (influentVertices.get(stt) != null) {
+				// System.out.println(influentVertices.get(stt));
+				strSetUnion = union2List(strSetUnion, influentVertices.get(stt));
+				strSetUnionRemove = union2ListRemoveDuplicate(strSetUnion,
+						influentVertices.get(stt));
+			}
+		}
+		// System.out.println("strSetUnion=" + strSetUnion);
+		System.out.println("Cac dinh chiu anh huong cua tap: "
+				+ strSetUnionRemove);
+		System.out.println("Suc anh huong cua tap doi voi cac dinh la:");
+		for (String stt : strSetUnionRemove) { // strSetUnionRemove la tap
+												// chiu anh huong cua tap
+												// keyCandidates
+			if (countStringInList(strSetUnion, stt) == 1) {
+				for (String str : keyCandidates) {
+					// System.out.println("str=" + str);
+					// System.out.println("stt=" + stt);
+					if (influentVertices.get(str) != null) {
+						if (influentVertices.get(str).contains(stt)) {
+							if (influenceValue.get(str).get(stt)
+									.compareTo(BigDecimal.ZERO) == 1) {
+								influenceOfSetVertices = influenceOfSetVertices
+										.add(influenceValue.get(str).get(stt));
+								// System.out.println("S" +
+								// influenceOfSetVertices );
+							}
+						}
+					}
+				}
+			} else if (countStringInList(strSetUnion, stt) > 1) {
+				BigDecimal influeValue = BigDecimal.ZERO;
+				for (String str : keyCandidates) {
+					if (influentVertices.get(str) != null) {
+						if (influentVertices.get(str).contains(stt)) {
+							// System.out.println(str + "=aa="+ stt +
+							// influenceValue.get(str).get(stt));
+							if (influenceValue.get(str).get(stt)
+									.compareTo(BigDecimal.ZERO) == 1) {
+								if (influeValue.compareTo(BigDecimal.ZERO) == 0) {
+									influeValue = BigDecimal.ONE
+											.subtract(influenceValue.get(str)
+													.get(stt));
+								} else {
+									influeValue = influeValue
+											.multiply(BigDecimal.ONE
+													.subtract(influenceValue
+															.get(str).get(stt)));
+								}
+							}
+						}
+					}
+				}
+				influenceOfSetVertices = influenceOfSetVertices
+						.add(BigDecimal.ONE.subtract(influeValue));
+				// System.out.println("S2" + influenceOfSetVertices );
+			}
+		}
+		// System.out.println("key candidatessss=" + keyCandidates);
+		System.out.println("Suc anh huong cua tap: " + influenceOfSetVertices);
+		return influenceOfSetVertices;
+	}
+
+	private int CalculateInfluenceWithThreshold(List<Vertex> vertices,
+			List<Edge> edges, List<String> keyCandidates) {
+		Map<String, Map<String, BigDecimal>> influenceValue = new HashMap<String, Map<String, BigDecimal>>();
+		Map<String, List<String>> influentVertices = new HashMap<String, List<String>>();
+		Map<String, BigDecimal> inf = new HashMap<String, BigDecimal>();
+		Map<String, Integer> flagCheckNode = new HashMap<String, Integer>();
+		// System.out.println("keyCandidates=" + keyCandidates);
+		for (String keyC : keyCandidates) {
+			for (String ver : this.mapInfluented.get(keyC)) {
+				// System.out.println("keyC" + keyC);
+				// System.out.println("ver" + ver);
+				// System.out.println("this.mapResult.get(keyC).get(ver)="
+				// + this.mapResult.get(keyC).get(ver));
+				if (this.mapResult.get(keyC).get(ver).compareTo(Data.theta) == 1) {
+					int temp = 0;
+					if (flagCheckNode.get(ver) != null) {
+						temp = flagCheckNode.get(ver);
+						flagCheckNode.remove(ver);
+					}
+					// System.out.println("Temp=" + temp);
+					flagCheckNode.put(ver, temp + 1);
+				}
+				else {
+					int temp = 0;
+					if (flagCheckNode.get(ver) != null) {
+						temp = flagCheckNode.get(ver);
+						flagCheckNode.remove(ver);
+					}
+					// System.out.println("Temp=" + temp);
+					flagCheckNode.put(ver, temp);
+				}
+			}
+		}
+//		System.out.println("flagCheckNode=" + flagCheckNode.get("1"));
+		for (String keyCan : keyCandidates) {
+			List<String> listKeyCan = new ArrayList<String>();
+			for (String st : keyCandidates) {
+				listKeyCan.add(st);
+			}
+			listKeyCan.remove(keyCan); // tap S \ dinh dang xet suc anh huong
+			BigDecimal infValue = BigDecimal.ZERO;
+			List<String> influentVertex = new ArrayList<String>();
+			// System.out.println("this.mapInfluented.get(keyCan)=" +
+			// this.mapInfluented.get(keyCan));
+			for (String vertex : this.mapInfluented.get(keyCan)) {
+//				System.out.println("keyCan" + keyCan);
+//				System.out.println("vertex" + vertex);
+//				System.out.println("flagCheckNode.get(vertex)="
+//						+ flagCheckNode.get(vertex));
+//				System.out.println("keyCandidates.size()="
+//						+ keyCandidates.size());
+				if (flagCheckNode.get(vertex) != null) {
+					if (flagCheckNode.get(vertex) < keyCandidates.size()) {
+						// System.out.println("keyCan=" + keyCan);
+						// System.out.println("vertex=" + vertex);
+						infValue = BigDecimal.ONE.subtract(this.mapResult.get(
+								keyCan).get(vertex));
+						// System.out.println("infValue=" + infValue);
+						if (this.mapInfluencePath != null) {
+							int countRemovePath = 0;
+							for (List<String> listStr : this.mapInfluencePath
+									.get(keyCan).get(vertex)) {
+								// System.out.println("listStr: " + listStr);
+								if (!Collections.disjoint(listKeyCan, listStr)) {
+									// Duong di listStr co dinh thuoc tap
+									// listKeyCan
+									// thi
+									// phai tinh lai suc anh huong tu dinh
+									// keyCan
+									// toi
+									// vertex.getName()
+									// infValue.divide(this.mapInfValuePath.get(listStr));
+									System.out.println("Duong di can loai bo: "
+											+ listStr);
+									BigDecimal infPathDivide = calculateInfluenceByPath(
+											vertices, edges, listStr);
+									// System.out
+									// .println("infPathDivide=" +
+									// infPathDivide);
+									if (infPathDivide
+											.compareTo(BigDecimal.ZERO) != 0) {
+										infValue = infValue
+												.divide(BigDecimal.ONE
+														.subtract(infPathDivide),
+														20,
+														BigDecimal.ROUND_HALF_UP); // round
+																					// with
+																					// 10
+																					// digits
+																					// of
+																					// decimal
+									}
+									// System.out
+									// .println("infValue after /=: " +
+									// infValue);
+									countRemovePath++;
+								}
+							}
+							// System.out.println("countRemovePath=" +
+							// countRemovePath);
+							// System.out.println("size of mapPath=" +
+							// this.mapInfluencePath.get(
+							// keyCan).get(vertex).size());
+							if (infValue.compareTo(BigDecimal.ONE) != 0
+									|| this.mapInfluencePath.get(keyCan)
+											.get(vertex).size() == countRemovePath) {
+								// System.out.println("keyCan=" + keyCan);
+								// System.out.println("vertex=" + vertex);
+								// System.out.println("BigDecimal.ONE.subtract(infValue)="
+								// + BigDecimal.ONE.subtract(infValue));
+								// inf = new HashMap<String, BigDecimal>();
+								Map<String, BigDecimal> infTemp = new HashMap<String, BigDecimal>();
+								inf.put(vertex,
+										BigDecimal.ONE.subtract(infValue));
+								infTemp.putAll(inf);
+								influenceValue.put(keyCan, infTemp);
+								// System.out.println( keyCan + "-" + vertex +
+								// "=" +
+								// influenceValue.get(keyCan).get(vertex));
+								if (BigDecimal.ONE.subtract(infValue)
+										.compareTo(BigDecimal.ZERO) == 1) {
+									// System.out.println("vertex=" + vertex);
+									influentVertex.add(vertex);
+								}
+								// System.out.println("influentVertex1=" +
+								// influentVertex);
+							}
+						}
+						// System.out.println("keyCan1=" + keyCan);
+						// System.out.println("influentVertex=" +
+						// influentVertex);
+
+						influentVertices.put(keyCan, influentVertex);
+					} else {
+						influentVertex.add(vertex);
+						influentVertices.put(keyCan, influentVertex);
+					}
+				}
+			}
+		}
+		// Calculate influence from set of keyCandidates to every influented
+		// node
+		List<String> strSetUnion = new ArrayList<String>();
+		List<String> strSetUnionRemove = new ArrayList<String>();
+		for (String stt : keyCandidates) {
+			// System.out.println("sttke=" + stt);
+			if (influentVertices.get(stt) != null) {
+//				System.out.println(stt+ "=" + influentVertices.get(stt));
+				// System.out.println(influentVertices.get(stt));
+				strSetUnion = union2List(strSetUnion, influentVertices.get(stt));
+				strSetUnionRemove = union2ListRemoveDuplicate(
+						strSetUnionRemove, influentVertices.get(stt));
+			}
+		}
+//		System.out.println("strSetUnion=" + strSetUnion);
+		System.out.println("Cac dinh chiu anh huong cua tap: "
+				+ strSetUnionRemove);
+		System.out.println("Suc anh huong cua tap doi voi cac dinh la:");
+		int countOk = 0;
+//		System.out.println("flagCheckNode22=" + flagCheckNode.get("1"));
+		for (String stt : strSetUnionRemove) { // strSetUnionRemove la tap
+												// chiu anh huong cua tap
+												// keyCandidates
+//			if (flagCheckNode.get(stt) != null) {
+//				System.out.println("flagCheckNode.get(stt)="
+//						+ flagCheckNode.get(stt));
+//				System.out.println("keyCandidates.size()="
+//						+ keyCandidates.size());
+//			}
+			if (flagCheckNode.get(stt) != null) {
+				if (flagCheckNode.get(stt) == keyCandidates.size()) {
+					System.out.println(stt + ": --> Vuot nguong " + Data.theta);
+					countOk++;
+				} else {
+					if (countStringInList(strSetUnion, stt) == 1) {
+						for (String str : keyCandidates) {
+							// System.out.println("str=" + str);
+							// System.out.println("stt=" + stt);
+							if (influentVertices.get(str) != null) {
+								if (influentVertices.get(str).contains(stt)) {
+									if (influenceValue.get(str).get(stt)
+											.compareTo(Data.theta) == 1) {
+										System.out.println(stt
+												+ ": "
+												+ String.valueOf(influenceValue
+														.get(str).get(stt))
+												+ " --> Vuot nguong "
+												+ Data.theta);
+										countOk++;
+									} else {
+										System.out.println(stt
+												+ ": "
+												+ String.valueOf(influenceValue
+														.get(str).get(stt))
+												+ " --> Khong Vuot nguong "
+												+ Data.theta);
+									}
+								}
+							}
+						}
+					} else if (countStringInList(strSetUnion, stt) > 1) {
+						BigDecimal influeValue = BigDecimal.ZERO;
+						for (String str : keyCandidates) {
+							if (influentVertices.get(str) != null) {
+								if (influentVertices.get(str).contains(stt)) {
+									// System.out.println(str + "=aa="+ stt +
+									// influenceValue.get(str).get(stt));
+									if (influenceValue.get(str).get(stt)
+											.compareTo(BigDecimal.ZERO) == 1) {
+										if (influeValue
+												.compareTo(BigDecimal.ZERO) == 0) {
+											influeValue = BigDecimal.ONE
+													.subtract(influenceValue
+															.get(str).get(stt));
+										} else {
+											influeValue = influeValue
+													.multiply(BigDecimal.ONE
+															.subtract(influenceValue
+																	.get(str)
+																	.get(stt)));
+										}
+									}
+								}
+							}
+						}
+
+						if (BigDecimal.ONE.subtract(influeValue).compareTo(
+								Data.theta) == 1) {
+							System.out.println(stt + ": "
+									+ BigDecimal.ONE.subtract(influeValue)
+									+ " --> Vuot nguong " + Data.theta);
+							countOk++;
+						} else if (BigDecimal.ONE.subtract(influeValue)
+								.compareTo(Data.theta) == -1
+								&& BigDecimal.ONE.subtract(influeValue)
+										.compareTo(BigDecimal.ZERO) == 1) {
+							System.out.println(stt + ": "
+									+ BigDecimal.ONE.subtract(influeValue)
+									+ " --> Khong Vuot nguong " + Data.theta);
+						}
+					}
+				}
+			} else {
+				countOk = 0;
+			}
+		}
+		return countOk;
 	}
 
 	public JavaPairRDD<String, List<String>> getIndirectInfluence(
@@ -957,16 +1515,32 @@ public class Utils implements Serializable {
 		return subsets;
 	}
 
+	private int CheckThresholdSetOneNode(String strS) {
+		int count = 0;
+		for (String vertex : this.mapInfluented.get(strS)) {
+			if (this.mapResult.get(strS) != null) {
+				if (this.mapResult.get(strS).get(vertex).compareTo(Data.theta) == 1) {
+					count++;
+				}
+			}
+		}
+		return count;
+	}
+
 	public List<String> findSmallestGroup(List<Vertex> vertices,
 			JavaRDD<Vertex> rddVertices, List<Edge> edges) {
 		int[] inputArray = new int[vertices.size()];
-		List<int[]> subsets = new ArrayList<>();
-		List<String> strSetS = new ArrayList<>();
+		List<int[]> subsets = new ArrayList<int[]>();
+		List<String> strSetS = new ArrayList<String>();
+		String strS = new String();
 		String[] arrayVertex = new String[vertices.size() + 1];
 		// boolean flagStopNextSet = false;
 		for (int i = 1; i <= vertices.size(); i++) {
 			inputArray[i - 1] = i;
 		}
+
+		rddVertices.cache();
+
 		for (int k = 1; k <= vertices.size(); k++) {
 			subsets = findCombinations(vertices, inputArray, k);
 			// flagStopNextSet = false;
@@ -974,21 +1548,26 @@ public class Utils implements Serializable {
 			// System.out.println("subsets length=" + subsets.get(0).length);
 			if (subsets.get(0).length == 1) { // moi tap co 1 dinh
 				for (int[] strings : subsets) {
-					m_countChecking++;
-					strSetS = new ArrayList<>();
+					strS = new String();
 					// System.out.println("a" + Arrays.toString(strings));
-					for (int jj = 0; jj < strings.length; jj++) {
-						strSetS.add(String.valueOf(strings[jj]));
-					}
-					System.out.println("***Xet tap: " + strSetS);
-					for (String stt : strSetS) {
-						InfluenceOfSetVertexOnAllVertex(vertices, rddVertices,
-								edges, strSetS, stt);
-						System.out.println("Dinh " + stt
-								+ " anh huong toi cac dinh: "
-								+ this.mapInfluented.get(stt));
-					}
-					int count = CalculateInfluenceOfSet(strSetS);
+
+					strS = String.valueOf(strings[0]);
+
+					System.out.println("***Xet tap: [" + strS + "]");
+					m_countChecking++;
+					// for (String stt : strSetS) {
+
+					IndirectInfluenceOfVertexOnAllVertex(vertices, rddVertices,
+							edges, strS);
+
+					// InfluenceOfSetVertexOnAllVertex(vertices, rddVertices,
+					// edges, strSetS, stt);
+					// System.out.println("Dinh " + stt
+					// + " anh huong toi cac dinh: "
+					// + this.mapInfluented.get(stt));
+					// }
+					// int count = CalculateInfluenceOfSet(strSetS);
+					int count = CheckThresholdSetOneNode(strS);
 					if (count >= Data.iNeed) {
 						System.out.println(" => Tap nay thoa dieu kien\n");
 						System.out.println("So to hop phai duyet: "
@@ -999,12 +1578,12 @@ public class Utils implements Serializable {
 								.println(" => Tap nay khong thoa dieu kien\n");
 					}
 				}
-				this.mapInfluentedFirst = sortByComparator(
-						this.mapInfluentedFirst, DESC);
-				arrayVertex = addVertexAfterSorted(this.mapInfluentedFirst);
+
+				this.mapInfluented = sortByComparator(this.mapInfluented, DESC);
+				arrayVertex = addVertexAfterSorted(this.mapInfluented);
 			} else {
 				for (int[] strings : subsets) { // moi tap co so dinh >= 2
-					strSetS = new ArrayList<>();
+					strSetS = new ArrayList<String>();
 					// System.out.println("a" + Arrays.toString(strings));
 					for (int jj = 0; jj < strings.length; jj++) {
 						// System.out.println("String=" +
@@ -1016,13 +1595,12 @@ public class Utils implements Serializable {
 					// anh huong > Data.iNeed hay khong. Neu khong se ko xet den
 					// cac tap co cung so luong dinh tiep theo nua ma chuyen
 					// sang xet tap dinh co nhieu hon 1 phan tu
-					List<String> strSetUnionRemove = new ArrayList<String>();
+					List<String> strSetUnion = new ArrayList<String>();
 					for (String stt : strSetS) {
 						// System.out.println("this.mapInfluentedFirst.get(stt)="
 						// + this.mapInfluentedFirst.get(stt));
-						strSetUnionRemove = union2ListRemoveDuplicate(
-								strSetUnionRemove,
-								this.mapInfluentedFirst.get(stt));
+						strSetUnion = union2List(strSetUnion,
+								this.mapInfluented.get(stt));
 					}
 
 					// for (String stt : strSetUnionRemove) {
@@ -1030,32 +1608,28 @@ public class Utils implements Serializable {
 					// }
 					// System.out.println("strSetUnionRemove.size()=" +
 					// strSetUnionRemove.size());
-					if (strSetUnionRemove.size() < Data.iNeed) {
+//					System.out.println("strSetUnion1=" + strSetUnion);
+					if (strSetUnion.size() < Data.iNeed) {
 						// flagStopNextSet = true;
 						break;
 					}
 
 					System.out.println("***Xet tap: " + strSetS);
 					m_countChecking++;
-					for (String stt : strSetS) {
-						if (strSetS.size() > 1
-								&& checkContain2List(
-										this.mapInfluentedFirst.get(stt),
-										strSetS) == true) {
-							this.mapInfluented.put(stt,
-									this.mapInfluentedFirst.get(stt));
-							this.mapResult.put(stt,
-									this.mapResultFirst.get(stt));
-						} else {
-							// System.out.println(stt);
-							InfluenceOfSetVertexOnAllVertex(vertices,
-									rddVertices, edges, strSetS, stt);
-						}
-						System.out.println("Dinh " + stt
-								+ " anh huong toi cac dinh: "
-								+ this.mapInfluented.get(stt));
-					}
-					int count = CalculateInfluenceOfSet(strSetS);
+					// for (String stt : strSetS) {
+					// if (strSetS.size() > 1
+					// && checkContain2List(
+					// this.mapInfluented.get(stt),
+					// strSetS) == true) {
+					// this.mapInfluented.put(stt,
+					// this.mapInfluentedFirst.get(stt));
+					// this.mapResult.put(stt,
+					// this.mapResultFirst.get(stt));
+					// } else
+					// {
+					// System.out.println(stt);
+					int count = CalculateInfluenceWithThreshold(vertices,
+							edges, strSetS);
 					if (count >= Data.iNeed) {
 						System.out.println(" => Tap nay thoa dieu kien\n");
 						System.out.println("So to hop phai duyet: "
@@ -1065,6 +1639,12 @@ public class Utils implements Serializable {
 						System.out
 								.println(" => Tap nay khong thoa dieu kien\n");
 					}
+					// }
+					// System.out.println("Dinh " + stt
+					// + " anh huong toi cac dinh: "
+					// + this.mapInfluented.get(stt));
+					// }
+					// int count = CalculateInfluenceOfSet(strSetS);
 				}
 			}
 		}
@@ -1072,63 +1652,38 @@ public class Utils implements Serializable {
 		return new ArrayList<String>();
 	}
 
-	public JavaPairRDD<List<String>, BigDecimal> findSetKeyPlayers(
-			List<Vertex> vertices, List<Edge> edges) {
+	private static boolean stringContainsItemFromList(String inputStr,
+			List<String> items) {
+		return items.stream().anyMatch(str -> str.trim().equals(inputStr));
+	}
+
+	public List<String> findSetKeyPlayers(List<Vertex> vertices,
+			List<Edge> edges) {
 		int[] inputArray = new int[vertices.size()];
-		List<int[]> subsets = new ArrayList<>();
-		List<String> strSetS = new ArrayList<>();
-		List<Tuple2<BigDecimal, List<String>>> mResult = new ArrayList<Tuple2<BigDecimal, List<String>>>(
-				vertices.size());
-		JavaRDD<Vertex> rddVertices = sc.parallelize(vertices);
-		rddVertices.cache();
+		BigDecimal influenceResult = BigDecimal.ZERO;
 		for (int i = 1; i <= vertices.size(); i++) {
 			inputArray[i - 1] = i;
 		}
-		// Check influence of every vertex
-		subsets = findCombinations(vertices, inputArray, 1);
-		for (int[] strings : subsets) {
-			strSetS = new ArrayList<>();
-			for (int jj = 0; jj < strings.length; jj++) {
-				strSetS.add(String.valueOf(strings[jj]));
-			}
-			for (String stt : strSetS) {
-				System.out.println("\n***Xet dinh:" + stt);
-				InfluenceOfSetVertexOnAllVertex(vertices, rddVertices, edges,
-						strSetS, stt);
-				System.out.println("Dinh " + stt + " anh huong toi cac dinh: "
-						+ this.mapInfluented.get(stt));
-			}
-		}
-		// check every set k vertexes
-		subsets = findCombinations(vertices, inputArray, Data.iNeed);
-		for (int[] strings : subsets) {
-			strSetS = new ArrayList<>();
-			// System.out.println("a" + Arrays.toString(strings));
-			for (int jj = 0; jj < strings.length; jj++) {
-				strSetS.add(String.valueOf(strings[jj]));
-			}
-			System.out.println("\n***Xet tap: " + strSetS);
-			for (String stt : strSetS) {
-				if (strSetS.size() > 1
-						&& checkContain2List(this.mapInfluentedFirst.get(stt),
-								strSetS) == true) {
-					this.mapInfluented.put(stt,
-							this.mapInfluentedFirst.get(stt));
-					this.mapResult.put(stt, this.mapResultFirst.get(stt));
-				} else {
-					// System.out.println(stt);
-					InfluenceOfSetVertexOnAllVertex(vertices, rddVertices,
-							edges, strSetS, stt);
-				}
-				System.out.println("Dinh " + stt + " anh huong toi cac dinh: "
-						+ this.mapInfluented.get(stt));
-			}
+		String keyOneVertex = findKeyPlayer(vertices, edges);
+		keyPlayerSet = new ArrayList<>();
+		keyPlayerSet.add(keyOneVertex);
+		for (int ii = 2; ii <= Data.iNeed; ii++) {
+			JavaPairRDD<String, BigDecimal> all = getAllInfluenceOfSetVertices(
+					vertices, edges, keyPlayerSet);
+			all.cache();
+			List<Tuple2<String, BigDecimal>> listAll = all.collect();
+			// for (Tuple2<String, BigDecimal> tuple : listAll) {
+			// System.out.println("[ " + tuple._1 + " : " + tuple._2.toString()
+			// + " ]");
+			// }
 
-			mResult.add(new Tuple2<BigDecimal, List<String>>(
-					CalculateInfluenceOfSetKeyPlayers(strSetS), strSetS));
+			// System.out.println("Key Player la: ");
+			Tuple2<String, BigDecimal> kp = all.first();
+			System.out.println(kp._1 + ": " + kp._2.toString());
+			keyPlayerSet.add(kp._1);
+			influenceResult = new BigDecimal(kp._2.toString());
 		}
-		return sc.parallelizePairs(mResult).sortByKey(false)
-				.mapToPair(t -> t.swap());
+		return this.keyPlayerSet;
 	}
 
 	private static List<String> union2List(List<String> list1,
@@ -1477,5 +2032,41 @@ public class Utils implements Serializable {
 		}
 
 		return new AbstractMap.SimpleEntry(sKP, bdMax);
+	}
+
+	public String findKeyPlayer(List<Vertex> vertices, List<Edge> edges) {
+		JavaPairRDD<String, BigDecimal> all = getAllInfluenceOfVertices(
+				vertices, edges);
+		all.cache();
+
+		// System.out.println("Suc anh huong cua tat ca cua dinh:");
+		List<Tuple2<String, BigDecimal>> listAll = all.collect();
+		// for (Tuple2<String, BigDecimal> tuple : listAll) {
+		// System.out.println("[ " + tuple._1 + " : " + tuple._2.toString()
+		// + " ]");
+		// }
+
+		// System.out.println("Key Player la: ");
+		Tuple2<String, BigDecimal> kp = all.first();
+		System.out.println(kp._1 + ": " + kp._2.toString());
+		return kp._1;
+	}
+
+	public void findInfluenceEvery(List<Vertex> vertices, List<Edge> edges) {
+		JavaPairRDD<String, BigDecimal> all = getAllInfluenceOfVertices(
+				vertices, edges);
+		all.cache();
+
+		// System.out.println("Suc anh huong cua tat ca cua dinh:");
+		// List<Tuple2<String, BigDecimal>> listAll = all.collect();
+		// for (Tuple2<String, BigDecimal> tuple : listAll) {
+		// System.out.println("[ " + tuple._1 + " : " + tuple._2.toString()
+		// + " ]");
+		// }
+
+		// System.out.println("Key Player la: ");
+		// Tuple2<String, BigDecimal> kp = all.first();
+		// System.out.println(kp._1 + ": " + kp._2.toString());
+		// return kp._1;
 	}
 }
